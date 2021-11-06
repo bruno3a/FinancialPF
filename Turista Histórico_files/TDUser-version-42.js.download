@@ -1,0 +1,529 @@
+var TDUserClass = function() {
+    const $this = this;
+
+    $this.payId     = "";
+    $this.payMethod = "";
+
+    $this.options = {
+      trackerBaseUrl: 'https://tracker.thinkindot.com',
+      trackerUserContentUrl: '/api/event/{organizationId}/{applicationId}/user/{userId}/content',
+      trackerDaysAgo: 30,
+      trackerContentLimit: 10,
+      apiUserBaseUrl: '',
+      limitShowWallClosed: 5,
+      showLog : false,
+      enabledCache : true,
+      register: false
+    }
+
+    // Inicializar
+    $this.init = function(options) {
+      jq.extend($this.options, options);
+      let frameCss = `
+        <link rel="stylesheet preload prefetch" as="style" href="${$this.options.apiUserBaseUrl}/css/TDUser.css" />
+      `;
+      jq('body').append(frameCss);
+      $this.TDeventListeners();
+      //Seteamos la funcion para controlar si el usuario esta logueado
+      jq('document').ready(function(){
+
+        var user = localStorage.getItem("apiuser-user");
+        var emailCookie = jq.cookie('TDEmail');
+        if(!emailCookie && user) {
+          user = JSON.parse(user);
+          if( user ) {
+            var hash = user.hash;
+            dataUrl   = $this.options.apiUserBaseUrl+"/user?hash="+hash;
+            var jqxhr = jq.ajax({
+              type: "GET",
+              url: dataUrl,
+              xhrFields: {
+                withCredentials: true
+              }
+            })
+            .done(function(response) {
+
+              console.log("User Logged");
+              jq(".TDuserNotLogued").hide();
+              jq(".TDuserLogued").show();
+              
+              jq(".TDEmailContainer").html(response.email);
+              jq(".TDNombreContainer").html(response.nombre);
+
+              $this.createCookies(user);
+              
+            })
+            .fail(function(response) {
+              $this.log("Result fail");
+              console.log("User Not Logged");
+              jq(".TDuserNotLogued").show();
+              jq(".TDuserLogued").hide();
+            })  
+          }
+        }        
+        $this.showUserLogued();
+        $this.attachEvents();
+      });
+    }
+
+    // Subscription for Events Listener
+    $this.TDeventListeners = () => {
+      window.addEventListener("message", (e)=> {
+        //$this.log("Revice Message => ", e.data);
+        if (typeof(e.data.event) != "undefined" && typeof(this[e.data.event]) != "undefined" ){
+          this[e.data.event].call(this,e.data);
+        }
+      }, false);
+    }
+
+    $this.addSuscription = function() {
+
+      //Controlamos si el usuario esta logueado
+      let url = $this.options.apiUserBaseUrl+"/user";
+      var jqxhr = jq.ajax({type: "GET", url: url, xhrFields: {withCredentials: true}
+      })
+      .done(function(response){
+        //Generamos la url de la suscripcion
+        let url = $this.options.apiUserBaseUrl+"/addSuscription";
+        url += "?payId="+$this.payId+"&payMethod="+$this.payMethod;
+        var jqxhr = jq.ajax({type: "GET",url: url,xhrFields: {withCredentials: true}
+        })
+        .done(function(response){
+          //Lanzamos el evento onRegistrationFinish
+          jq(document).trigger("onRegistrationFinish",[response]);
+        })
+        .fail(function(response){
+          $this.log(response);
+        });
+      })
+      .fail(function(response){
+        //Removemos las cookies
+        $this.removeCookies();
+
+        //Mostramos lo datos del usuario logueado
+        $this.showUserLogued();
+
+        //Si el usuario no esta logueado los registramos en base al pago
+        var register = "register"+$this.payMethod;
+        $this.log("Call function => "+register);
+        $this[register]();
+      });
+    }
+
+    //Realizamos una suscripcion en base a la operacion de mercado pago
+    $this.registermercadopago = function() {
+      let url = $this.options.apiUserBaseUrl+"/registerMercadoPago";
+      url += "?payId="+$this.payId;
+      var jqxhr = jq.ajax({type: "POST",url: url,xhrFields: {withCredentials: true}
+      })
+      .done(function(userData,textStatus, xhr){
+        //Si es un 201 quiere decir que se creo el usuario, tenemos que loguearlo
+        if(xhr.status == 201){
+          $this.onUserLogin(userData);
+        }
+        //Lanzamos el evento onRegistrationFinish
+        jq(document).trigger("onRegistrationFinish", [userData]);
+      })
+      .fail(function(response){
+        $this.log(response);
+        //Si el usuario no esta logueado abrimos el modal
+      })
+    }
+
+
+    // Open login
+    $this.openRegisterSignwall = function() {
+      $this.options.register = true;
+      $this.openSignwall();
+    }
+
+    $this.openSignwall = function() {
+      let url = $this.options.apiUserBaseUrl+"/singup";
+      if($this.options.register) url += "?reg";
+      $this.options.register = false;
+      let frameHTML= `
+        <div id="td-parent">
+          <iframe frameborder="0" class="td-signwall-frame" src="${url}"></iframe>
+        </div>
+      `;
+      jq('body').append(frameHTML);
+      jq('#td-parent').fadeIn();
+      //jq("#tdUserSingup").src = url;
+    }
+
+    $this.openSignwallRegister = function() {
+      let url = $this.options.apiUserBaseUrl+"/singup?openRegister=open";
+      if($this.options.register) url += "?reg";
+      $this.options.register = false;
+      let frameHTML= `
+        <div id="td-parent">
+          <iframe frameborder="0" class="td-signwall-frame" src="${url}"></iframe>
+        </div>
+      `;
+      jq('body').append(frameHTML);
+      jq('#td-parent').fadeIn();
+      //jq("#tdUserSingup").src = url;
+    }
+
+    // Open editar perfil
+    $this.updateSignwall = function() {
+      let url = $this.options.apiUserBaseUrl+"/update";
+      let frameHTML= `
+        <div id="td-parent">
+          <iframe frameborder="0" class="td-signwall-frame" src="${url}"></iframe>
+        </div>
+      `;
+      jq('body').append(frameHTML);
+      jq('#td-parent').fadeIn();
+      //jq("#tdUserSingup").src = url;
+    }
+
+    // Close Signwall
+    $this.closeSignwall = function() {
+      jq('#td-parent').fadeOut( () => jq('#td-parent').remove());
+    }
+
+    //Agregamos los eventos custom
+    $this.addEvent = function(name,func){
+      jq(document).on(name,func);
+    }
+
+    // Logout
+    $this.logout = function() {
+      localStorage.setItem("apiuser-user", []);
+      localStorage.setItem("TDEmail", "");
+
+      dataUrl   = $this.options.apiUserBaseUrl+"/logout";
+      var jqxhr = jq.ajax({
+        type: "GET",
+        url: dataUrl,
+        xhrFields: {
+          withCredentials: true
+        }
+      })
+      .done(function(response) {
+        $this.log("onLogout => ", response);
+
+        //ocultamos o mostramos
+        $this.removeCookies();
+
+        //Mostramos lo datos del usuario logueado
+        $this.showUserLogued();
+
+        //Lanzamos el evento afterLogout
+        jq(document).trigger('onLogout');
+
+      })
+      .fail(function(response) {
+        $this.log("error =>",response);
+      })
+    }
+
+    // On login
+    $this.onUserLogin = function(userData) {
+      //Creamos las cookies del usuario
+      $this.createCookies(userData);
+
+      //Mostramos lo datos del usuario logueado
+      this.showUserLogued();
+
+      //Cerramos el layer del singwall
+      $this.closeSignwall();
+
+      //Lanzamos el evento onUserLogin
+      jq(document).trigger("onUserLogin", [userData]);
+    }
+
+    // On Register
+    $this.onRegister = function(userData) {
+      let loginOnFirstScreen = (typeof(userData['loginOnFirstScreen'] != 'undefiend')) ? userData['loginOnFirstScreen'] : true;
+      let activateOnEmail = (typeof(userData['activateOnEmail'] != 'undefiend')) ? userData['activateOnEmail'] : false;
+      let validationType = (typeof(userData['validationType'] != 'undefiend')) ? userData['validationType'] : false;
+
+      if(!activateOnEmail){
+        if(validationType == 'PrimaryFields'){
+          if(loginOnFirstScreen){
+            //Creamos las cookies del usuario
+            $this.createCookies(userData);
+
+            //Mostramos lo datos del usuario logueado
+            this.showUserLogued();
+          }
+        }else{
+          //Creamos las cookies del usuario
+          $this.createCookies(userData);
+
+          //Mostramos lo datos del usuario logueado
+          this.showUserLogued();
+        }
+      }
+      //Lanzamos el evento onRegister
+      jq(document).trigger("onRegister");
+    }
+
+    // On Update
+    $this.onUpdate = function(userData) {
+      //Creamos las cookies del usuario
+      $this.createCookies(userData);
+
+      //Mostramos lo datos del usuario logueado
+      this.showUserLogued();
+
+      //Cerramos el layer del singwall
+      $this.closeSignwall();
+    }
+
+    //Ejecutamos el evento cuando se termina el registro
+    $this.onRegistrationFinish = function(evt){
+      //Cerramos el layer del singwall
+      $this.closeSignwall();
+
+      //Mostramos lo datos del usuario logueado
+      this.showUserLogued();
+
+      //Lanzamos el evento onRegistrationFinish
+      jq(document).trigger("onRegistrationFinish",[evt]);
+    }
+
+    //Crea las cookies del usuario logeuado
+    $this.createCookies = function(userData){
+      //Seteamos las cookies del usuario
+      if(typeof(userData.email) != "undefiend"){
+        jq.cookie('TDEmail', userData.email, { path: '/', expires: 30*365, domain : window.location.host});
+      }
+
+      if(typeof(userData.nombre) != "undefiend"){
+        jq.cookie('TDNombre', userData.nombre, { path: '/', expires: 30*365 , domain : window.location.host});
+      }
+
+      localStorage.setItem("apiuser-user", JSON.stringify(userData));
+
+    }
+
+    //Elimina las cookies del usuario logeuado
+    $this.removeCookies = function(){
+      jq.removeCookie('TDEmail',{ path: '/' });
+      jq.removeCookie('TDNombre',{ path: '/' });
+      jq.removeCookie('TDsubscribed',{ path: '/' });
+      // SUBDOMAIN COOKIES
+      var sd =  "."+window.location.host;
+      jq.removeCookie('TDEmail',{ path: '/', domain: sd });
+      jq.removeCookie('TDNombre',{ path: '/', domain: sd });
+      jq.removeCookie('TDsubscribed',{ path: '/', domain: sd });
+    }
+
+    //Atachamos los eventos
+    $this.attachEvents = function(){
+      jq(".TDLoginContainer").on("click",$this.openSignwall);
+      jq(".TDEditUser").on("click",$this.updateSignwall);
+      jq(".TDuserLogout").on("click",$this.logout);
+    }
+
+    // Show User loguead
+    $this.showUserLogued = function() {
+      $this.log("Validamos si el usuario esta logueado");
+      if(jq.cookie("TDEmail")) {
+        console.log("User Logged");
+        jq(".TDuserNotLogued").hide();
+        jq(".TDuserLogued").show();
+        
+        jq(".TDEmailContainer").html(jq.cookie("TDEmail"));
+        jq(".TDNombreContainer").html(jq.cookie("TDNombre"));
+        
+        jq.cookie('TDEmail', jq.cookie("TDEmail"), { path: '/', expires: 30*365 });
+        jq.cookie('TDNombre', jq.cookie("TDNombre"), { path: '/', expires: 30*365 });
+        
+      }else{
+        
+          console.log("User Not Logged");
+          jq(".TDuserNotLogued").show();
+          jq(".TDuserLogued").hide();
+
+      }
+    }
+
+
+    $this.onRegisterSuccess = function(response) {
+        //Armamos el html del usuario logueado
+        parent.UsuariosWeb.showUserLogued();
+
+        //Lanzamos el evento after login del layer
+        this.fireEvent('afterLogin');
+        this.removeEvents('afterLogin');
+
+        //Lanzamos el evento after login de la pagina padre
+        parent.UsuariosWeb.fireEvent('afterLogin');
+        parent.UsuariosWeb.removeEvents('afterLogin');
+
+    }
+
+    $this.getTrackerUrl = function() {
+        var uniqueUserId = window.getUniqueUserId();
+
+        var organizationId = window.organization_id;
+        var applicationId = window.application_id;
+        var objectType = (window.objectType).toLowerCase();
+
+        var organizationIdTag = '{organizationId}';
+        var applicationIdTag = '{applicationId}';
+        var userIdTag = '{userId}';
+
+        var trackUrl = $this.options.trackerBaseUrl + $this.options.trackerUserContentUrl;
+        var queryString = "?days_ago=" + $this.options.trackerDaysAgo + "&object_type=" + objectType + "&debug=false";
+
+        trackUrl = trackUrl.replace(organizationIdTag, organizationId);
+        trackUrl = trackUrl.replace(applicationIdTag, applicationId);
+        trackUrl = trackUrl.replace(userIdTag, uniqueUserId);
+
+        return trackUrl = trackUrl + queryString;
+    }
+
+    $this.addNotesRead = function(){
+      console.log('---> addNotesRead')
+      $this.log("Seteamos la lectura de una nota");
+      var total = parseInt(jq.cookie("TDNotesRead"));
+      if (isNaN(total)) {
+        total = 0;
+      }
+      total++;
+      $this.log("Total Lecturas => " + total);
+      jq.cookie("TDNotesRead",total,{ path: '/' , expires : 365 });
+    }
+
+    $this.resetNotesRead = function(){
+      jq.cookie("TDNotesRead",0,{ path: '/' , expires : 365 })
+      jq.cookie("TDClosedWall",false,{ path: '/' , expires : 0 });
+
+      $this.log("Reseteamos los datos de lectura de notas");
+      $this.log("TDNotesRead => " + parseInt(jq.cookie("TDNotesRead")));
+      $this.log("TDClosedWall => " + jq.cookie("TDClosedWall"));
+    }
+
+    $this.closeWall = function(){
+      jq.cookie("TDClosedWall",true,{ path: '/' , expires : 356 });
+
+      $this.log("Cerramos el cartel del signwall");
+      $this.log("TDClosedWall => " + jq.cookie("TDClosedWall"));
+    }
+
+    $this.validateSignwall = function() {
+      $this.log("VALIDATE Signwall");
+      $this.addNotesRead();
+
+      dataUrl = $this.getTrackerUrl();
+      var jqxhr = jq.getJSON(dataUrl)
+      .done(function(response) {
+        $this.log("Response => ", response);
+        if (typeof(response.total) != 'undefined') {
+          $this.log("Total Notas Leidas => "+response.total);
+          $this.log("Limite Notas Leidas => "+$this.options.trackerContentLimit);
+          if (response.total >= $this.options.trackerContentLimit) {
+            var noteRead = parseInt(jq.cookie("TDNotesRead"));
+            var closedWall  = jq.cookie("TDClosedWall");
+            $this.log('WallClosed => '+ closedWall +' | Read => ' + noteRead + ' Limit => ' + $this.options.limitShowWallClosed);
+
+            if(closedWall && noteRead <= $this.options.limitShowWallClosed){
+              $this.log('Not show wall');
+              return false;
+            }
+
+            $this.log('Reseteando Notas leidas');
+            $this.resetNotesRead();
+            $this.log('Ejecutando => ExceededReadingLimits');
+            jq(document).trigger("ExceededReadingLimits");
+          } else {
+            $this.log('todavía no te pasaste de notas leídas');
+          }
+        }
+      })
+      .fail(function() {
+        //$this.log("error");
+      })
+    }
+
+    $this.openSuscriptionMP = function(){
+
+    }
+
+    //Agrega un usuario a la suscripcion de mercado pago
+    $this.addSubscribedMP = function(email,notSubscribed,subscribed){
+      dataUrl   = $this.options.apiUserBaseUrl+"/isSubscribedMP?email="+email;
+      var jqxhr = jq.ajax({
+        type: "GET",
+        url: dataUrl,
+        xhrFields: {
+          withCredentials: true
+        }
+      })
+      .done(function(response) {
+        $this.log("Subscribed result OK ");
+        //$this.log(response);
+        if(!response.subscribed){
+          $this.log("Usuario No suscripto");
+          notSubscribed.call(this,true);
+        }else{
+          $this.log("Usuario Suscripto");
+          jq.cookie("TDsubscribed","1",{ path: '/' , expires : 30*365 });
+          if(typeof(subscribed) != "undefiend" && subscribed){
+            subscribed.call();
+          }
+        }
+      })
+      .fail(function(response) {
+        $this.log("Result fail");
+        notSubscribed.call(this,true);
+      })
+    }
+
+    $this.validateSubscribedMP = function(notSubscribed,subscribed){
+
+      //Controlamos si es un usuario suscripto
+      if(this.options.enabledCache){
+        var isSuscripted = jq.cookie("TDsubscribed");
+        if(isSuscripted){
+          $this.log("Usuario suscripto");
+          subscribed.call();
+          return false;
+        }
+      }
+
+      //Controlamos si es un usuario registrado
+      if(this.options.enabledCache){
+        var email = jq.cookie("TDEmail");
+        if(!email){
+          $this.log("Usuario no registrado");
+          notSubscribed.call(this,false);
+          return false;
+        }
+        $this.addSubscribedMP(email,notSubscribed,subscribed);
+      }else{
+        //Controlamos si el usuario esta logueado
+        let url = $this.options.apiUserBaseUrl+"/user";
+        var jqxhr = jq.ajax({type: "GET", url: url, xhrFields: {withCredentials: true}
+        })
+        .done(function(response){
+          $this.log("Si es un usuario logueado agregamos la suscripcion");
+          console.log(response);
+          $this.addSubscribedMP(response.email,notSubscribed,subscribed);
+        })
+        .fail(function(response){
+          $this.log("Usuario no registrado");
+          notSubscribed.call(this,false);
+          return false;
+        })
+      }
+
+    }
+
+    $this.isLoggedUser = function(){
+
+    }
+
+    $this.log = function(log){
+      if(!$this.options.showLog){
+        return false;
+      }
+      console.log(log);
+    }
+
+}

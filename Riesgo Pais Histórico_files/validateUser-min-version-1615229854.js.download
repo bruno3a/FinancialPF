@@ -1,0 +1,3 @@
+var validateUser=function(){var d=new Date();d.setTime(d.getTime()+(30*24*60*60*1000));if(typeof _idCMSPortal=="undefined"){var _idCMSPortal='239'}
+console.log(_idCMSPortal);document.cookie="idCMSPortal="+_idCMSPortal+"; expires="+d.toUTCString()+"; path=/"}
+validateUser()

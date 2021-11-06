@@ -1,0 +1,64 @@
+class IndicadoresAcciones{
+
+  constructor(){
+    this.urlApi = 'http://api-ambito.dev.docker.server/';
+  }
+
+  procesarDatos(el, resultado){
+    var ret = '';
+    for(var key in resultado){
+      if(typeof resultado[key] != 'undefined' && typeof resultado[key] != 'function' && typeof resultado[key] != 'boolean'){
+        var item = jq(el).find('[data-indice="'+resultado[key][0].toLowerCase()+'"]')[0];
+        jq(item).find('.data-valor').html(resultado[key][1]);
+        if(resultado[key][2] != "") 
+          jq(item).find('.data-nombre').html(resultado[key][2]);
+        jq(item).find('.data-valor').addClass(resultado[key][3]);
+        if(resultado[key][4] != 'undefined')
+          jq(item).find('.data-ultimo').html(resultado[key][4]);
+        if(resultado[key][5] != 'undefined')
+          jq(item).find('.data-cierre').html(resultado[key][5]);
+        if(resultado[key][6] != 'undefined')
+          jq(item).find('.data-volumen').html(resultado[key][6]);
+        if(resultado[key][7] != 'undefined')
+          jq(item).find('.data-fecha').html(resultado[key][7]);
+      }
+    }
+  }
+
+  procesarElemento(el){
+    //var url = jq(el).data("url") + '/acciones/multiple';
+    var url = jq(el).data("url") + jq(el).data("ep");
+    var self = this;
+    var params = jq(el).find('.item-acciones[data-indice]')
+    var i;
+    var parametros = '';
+
+    for(i=0; i < params.length; i++){
+      parametros += jq(params[i]).data('indice');
+      parametros += ',';
+    }
+    parametros = parametros.substring(0, parametros.length - 1);
+
+    jq.ajax({
+      type: "POST",
+      data: {parametros:parametros},
+      url: url,
+      datatype: "json",
+      success: function(result) { self.procesarDatos(el, result); }
+    })
+  }
+
+  procesar(){
+    var els = jq(".indicadores-acciones");
+    var count = els.length;
+    var i;
+
+    for(i=0; i < count; i++){
+      this.procesarElemento(els[i]);
+    }
+  }
+
+}
+
+var indicadoresAcciones = new IndicadoresAcciones();
+indicadoresAcciones.procesar();

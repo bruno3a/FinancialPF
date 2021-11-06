@@ -1,0 +1,8 @@
+'use strict';(function($){$.fn.mediaPlayer=function(autostart){this.each(function(){var $this=$(this),playerId=this.id,adjuntoId=$this.data('adjunto-id'),mediaUrl=$this.data('media-url'),previewUrl=$this.data('media-preview-url'),caption=$this.data('media-caption'),width=$this.data('media-width'),height=$this.data('media-height'),skinUrl=$this.data('media-skin'),aspectRatio=$this.data('media-ratio');if(!playerId){playerId='player-'+String(Math.random()).replace('.','-');this.id=playerId}
+if(!mediaUrl){console.log('Falta definir la url del Adjunto');return}
+if(!adjuntoId){adjuntoId=''}
+if(!previewUrl){previewUrl=''}
+if(!width){width='50%'}
+if(!height){height=''}
+if(!skinUrl){skinUrl=''}
+var player=new VideoPlayer(String(playerId),String(adjuntoId),String(mediaUrl),String(previewUrl),String(caption),{width:String(width),height:String(height),skin:String(skinUrl),aspectratio:String(aspectRatio),autostart:autostart,advertising:{client:"vast",schedule:{adbreak1:{offset:5,type:'nonlinear',tag:""}}}});player.run()});return this};$('[data-player]').not('[data-no-auto-load]').mediaPlayer();$(document).on('click','[data-load-player]',function(ev){ev.preventDefault();var $this=$(this);$('[data-adjunto-id='+$this.data('load-player')+']').mediaPlayer(!0);$this.remove()})})(jq)

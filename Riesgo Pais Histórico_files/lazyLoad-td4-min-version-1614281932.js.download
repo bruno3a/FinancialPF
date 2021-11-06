@@ -1,0 +1,12 @@
+var LazyLoad=function(options){this.options={isBackend:!1,type:"sequential",range:100,image:'/vendor/lazyLoad/blank.gif',elements:'img',container:window},this.initialize=function(opts){Object.assign(this.options,opts);this.container=jQuery(this.options.container);this.elements=jQuery(this.options.elements);this.containerHeight=this.container.outerHeight();this.start=0;this.re=/\/[a-zA-Z]{1,}-(\d{14})(\d{1})(\d{8})\//i;var me=this;this.elements=this.elements.filter(function(index,el){el=jQuery(el);if(el.offset().top!=0&&el.offset().top<me.containerHeight+me.options.range){if(el.attr("longdesc")){el.attr('src',el.attr("longdesc"))}
+return!1}
+return!0},this);if(this.options.type=="sequential"||this.options.isBackend){for(var i=0;i<this.elements.length;i++){this.elements=this.elements.filter(function(el){if((this.containerHeight*(i+2))>=el.position().top){if(el.attr("longdesc")){el.attr('src',el.attr("longdesc"))}
+return!1}
+return!0},this)}}else{this.actionGA=function(){if(typeof ga!="function")return
+var percent=Math.floor(100*document.scrollingElement.scrollTop/document.scrollingElement.scrollHeight);if(document.scrollingElement.scrollTop+window.outerHeight+100>=document.scrollingElement.scrollHeight){percent=100}
+switch(percent){case 25:case 50:case 75:case 100:var meta=jQuery("meta[property=og\\:title]");var title=(meta.length>0)?meta[0].content:"";ga('tdGA.send',{hitType:'event',eventCategory:'NTG article milestone',eventAction:percent+'%',eventLabel:title,eventValue:percent,nonInteraction:!0})}}.bind(this);this.action=function(){this.actionGA();var cpos=this.container.scrollTop();if(cpos>=this.start){var me=this;this.elements=this.elements.filter(function(index,el){el=jQuery(el);if((me.container.scrollTop()+me.options.range+me.containerHeight)>=el.offset().top){if(el.attr("longdesc")){el.attr('src',el.attr("longdesc"))}
+el.trigger('load');return!1}
+return!0},this);this.start=cpos}
+if(!this.elements.length){this.container.off('scroll',this.action)}}.bind(this);this.container.on('scroll',this.action);if(typeof this.action!="undefined"){this.action()}}}
+this.reloadElements=function(){this.elements=jQuery(this.options.elements);if(typeof this.action!="undefined"){this.action()}}
+this.initialize(options)}

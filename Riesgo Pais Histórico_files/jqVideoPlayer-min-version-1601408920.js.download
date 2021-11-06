@@ -1,0 +1,28 @@
+if(typeof(VideoPlayer)=="undefined"){function VideoPlayer(idElement,idAdjunto,file,image,title,options,prerollConfigURL){this.idElement=null
+this.idAdjunto=null
+this.idAdjuntoIndex=0
+this.autoPlay=null
+this.playlist=[]
+this.setup={}
+this.itervalSlider=null
+this.insertedVisita=!1
+this.options={sliderThumbs:"thumbs",itemThumbClass:"itemThumb",itemActive:"active",itemInactive:"inactive",nextThumb:"nextThumbnail",prevThumb:"prevThumbnail",idElementContent:"",prerollSWF:"/_modulos/adjuntos/_swf/ova.swf"}
+this.CMSConfig={'Container':{'description':'Elemento contenedor de todos los items del over','data':[{'attr':'id','value':'#OBJECTID#'}]}}
+this.initialize=function(idElement,idAdjunto,file,image,title,options,prerollConfigURL){CMSTools.debug('initialize',idElement);this.idElement=idElement;this.idAdjunto=idAdjunto;this.configURL='/_post/preroll.php?url=';this.add(idAdjunto,file,image,title);var arrPlayer=[];this.setup={autostart:!1,file:file,image:image,base:(typeof options.base!="undefined")?options.base:"/libs/mediaplayer-6.8/",events:{onPlay:this.onPlay.bind(this),onReady:this.onReady.bind(this),onIdle:this.onStop.bind(this),onPause:this.onPause.bind(this),onBeforePlay:this.onBeforePlay.bind(this)}};if(typeof(options)!="undefined"){for(var key in options){this.setup[key]=options[key];this.options[key]=options[key]}}
+this.setup.primary='html5';this.setup.hlshtml=!0}
+this.run=function(){CMSTools.debug("PLAYER: setup => ");CMSTools.debug(this.setup);if(this.autoPlay){this.idAdjuntoIndex=this.autoPlay.idAdjuntoIndex;this.idAdjunto=this.autoPlay.idAdjunto;this.setup.file=this.autoPlay.file;this.setup.image=this.autoPlay.image;if((typeof(this.setup.config)!="undefined")){this.setup.config+="&autoplay=true"}else{this.setup.autostart=!0}
+this.autoPlay=null}
+this.playerInstance=jwplayer(this.idElement).setup(this.setup);this.playerInstance.idAdjunto=this.idAdjunto}
+this.add=function(idAdjunto,file,image,title){this.playlist.push({idAdjunto:idAdjunto,file:file,image:image,title:title});if(window.location.href.indexOf("#playvideo-"+idAdjunto)>-1){this.autoPlay={idAdjuntoIndex:this.playlist.length-1,idAdjunto:idAdjunto,file:file,image:image}
+CMSTools.debug("PLAYER: setup autostart => "+idAdjunto)}}
+this.setVideo=function(index){this.setup.file=this.playlist[index].file;this.setup.image=this.playlist[index].image;this.idAdjunto=this.playlist[index].idAdjunto;this.idAdjuntoIndex=index;CMSTools.debug("PLAYER: set video => "+this.idElement);CMSTools.debug(this.setup);jwplayer(this.idElement).setup(this.setup);jwplayer(this.idElement).idAdjunto=this.idAdjunto}
+this.onPlay=function(oldState){if(window.jQuery){jQuery('#'+this.idElement).trigger('jwplayer:playing')}
+if(!this.insertedVisita){try{jQuery.post({url:'../_post/insertVisita.php',data:{idContenido:this.idAdjunto,idCMSModulo:11}})
+this.insertedVisita=!0}catch(e){}}}
+this.onStop=function(oldState){if(window.jQuery){jQuery('#'+this.idElement).trigger('jwplayer:stoped')}}
+this.onBeforePlay=function(oldState){if(window.jQuery){jQuery('#'+this.idElement).trigger('jwplayer:beforePlaying')}}
+this.onPause=function(oldState){if(window.jQuery){jQuery('#'+this.idElement).trigger('jwplayer:paused')}}
+this.onReady=function(){if(window.jQuery){jQuery('#'+this.idElement).trigger('jwplayer:ready')}
+try{if(window.top.configure_comscore&&!this.isComscoreConfigured){window.top.configure_comscore(this.playerInstance,window.top.streamsenseJSON,window.top.streamsenseAdjuntosJSON);this.isComscoreConfigured=!0}}
+catch(err){}}
+this.initialize(idElement,idAdjunto,file,image,title,options,prerollConfigURL)}}

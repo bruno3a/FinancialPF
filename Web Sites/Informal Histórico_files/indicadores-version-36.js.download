@@ -1,0 +1,634 @@
+var economicIndicators = null;
+
+class Indicadores {
+
+	constructor() {
+		this.urlApi = 'http://api-ambito.dev.docker.server/';
+	}
+
+	procesarDatos(el, resultado) {
+		for (var key in resultado) {
+			if (key.substring(0, 6) == "class-") {
+				jq(el).find('.data-' + key).addClass(resultado[key]);
+			} else {
+				jq(el).find('.data-' + key).html(resultado[key]);
+			}
+		}
+	}
+
+	procesarElemento(el) {
+		var url = jq(el).data("url") + jq(el).data("indice") + jq(el).data("ep");
+		var self = this;
+
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.procesarDatos(el, result);
+			}
+		})
+	}
+
+	procesarIndices() {
+		var els = jq(".indicador[data-indice]");
+		var count = els.length;
+		var i;
+
+		for (i = 0; i < count; i++) {
+			this.procesarElemento(els[i]);
+		}
+	}
+
+	procesarElementoGrafico(el) {
+		var url = jq(el).data("url") + jq(el).data("ep");
+		var self = this;
+
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.procesarDatos(el, result);
+			}
+		})
+	}
+
+	dibujarGrafico(el, result) {
+		var self = this;
+		google.charts.setOnLoadCallback(function () {
+			self.drawChart(el, result)
+		});
+	}
+
+	getData(el) {
+		var chartDiv = jq(el).find('#chart_div')[0];
+		jq(chartDiv).addClass('loader');
+		var url = jq(el).data("url") + jq(el).data("ep") + jq(el).data("periodo");
+		var self = this;
+		var data;
+
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.dibujarGrafico(el, result);
+			}
+		});
+	}
+
+
+	drawChart(el, result) {
+		var chartDiv = el.querySelectorAll('[id^="chart_div"]')[0];
+		var chartHeight = '415';
+		var chartWidth = 'auto';
+		if (el.querySelectorAll('[id^="chart_div"]')[0].getAttribute('id').length > 9 && chartDiv.closest("a") != null) {
+			var chartDivHeigth = chartDiv.closest("a").clientHeight;
+			chartHeight = chartDivHeigth;
+		} else {
+			if (chartDiv.closest(".gallery") != null) {
+				var chartWidth = chartDiv.closest(".gallery").clientWidth;
+			}
+		}
+		jq(chartDiv).removeClass('loader');
+
+		var data = google.visualization.arrayToDataTable(result, false);
+
+
+		var materialOptions = {
+			height: chartHeight,
+			width: chartWidth,
+			chartArea: {
+				width: '80%',
+				height: '68%'
+			},
+			vAxis: {
+				format: {
+					decimalSymbol: '.'
+				}
+			},
+			hAxis: {
+				slantedText: true,
+				slantedTextAngle: 45,
+				ticks: [new Date(2014, 0), new Date(2014, 1), new Date(2014, 2), new Date(2014, 3),
+					new Date(2014, 4), new Date(2014, 5), new Date(2014, 6), new Date(2014, 7),
+					new Date(2014, 8), new Date(2014, 9), new Date(2014, 10), new Date(2014, 11)
+				],
+				format: 'short'
+			},
+			legend: {
+				position: 'none'
+			}
+		};
+
+		function drawMaterialChart() {
+			var materialChart = new google.visualization.AreaChart(chartDiv);
+			materialChart.draw(data, materialOptions);
+			//materialChart.draw(data);
+		}
+
+		drawMaterialChart();
+	}
+
+
+	procesarGraficos() {
+		var els = jq(".indicador-grafico[data-ep]");
+		var count = els.length;
+		var i;
+		var self = this;
+
+		if (typeof google != 'undefined' && typeof google.charts != 'undefined') {
+			google.charts.load('current', {
+				'packages': ['line', 'corechart'],
+				'language': 'es'
+			});
+
+			for (i = 0; i < count; i++) {
+				var c = i;
+				this.getData(els[i]);
+			}
+		}
+	}
+	procesarGraficosScript() {
+		var els = jq(".embedGraph");
+		var count = els.length;
+		var i;
+		var self = this;
+
+		if(count == 0){
+			console.log("Not load JS CHARTS");
+			return false;
+		}
+		console.log("Load JS CHARTS");
+
+		function loadJS(src, callback) {
+			var s = document.createElement('script');
+			s.src = src;
+			s.async = true;
+			s.onreadystatechange = s.onload = function () {
+				var state = s.readyState;
+				if (!callback.done && (!state || /loaded|complete/.test(state))) {
+					callback.done = true;
+					callback();
+				}
+			};
+			document.getElementsByTagName('head')[0].appendChild(s);
+		}
+		if (jq('script[src="https://www.gstatic.com/charts/loader.js"]').length == 0) {
+			loadJS('https://www.gstatic.com/charts/loader.js', () => {
+				if (typeof google != 'undefined' && typeof google.charts != 'undefined') {
+					google.charts.load('current', {
+						'packages': ['line', 'corechart'],
+						'language': 'es'
+					});
+
+					for (i = 0; i < count; i++) {
+						var c = i;
+						this.getDataScript(els[i]);
+					}
+				}
+			});
+		} else {
+			if (typeof google != 'undefined' && typeof google.charts != 'undefined') {
+				google.charts.load('current', {
+					'packages': ['line', 'corechart'],
+					'language': 'es'
+				});
+
+				for (i = 0; i < count; i++) {
+					var c = i;
+					this.getDataScript(els[i]);
+				}
+			}
+		}
+
+
+
+
+
+	}
+
+	getDataScript(el) {
+		var idRandom = 'chart_div' + Date.now();
+		var newChartDiv = document.createElement("div");
+		newChartDiv.id = idRandom;
+		jq(el).append(newChartDiv);
+
+		var chartDiv = jq(el).find('#' + idRandom)[0];
+		jq(chartDiv).addClass('loader');
+		var desde = jq(el).data("desde");
+		var hasta = jq(el).data("hasta");
+		console.log(desde, hasta);
+		if (typeof desde != 'undefined' && typeof hasta != 'undefined' && desde != '' && hasta != '') {
+			var url = jq('script[data-embedGraph-api]').attr("data-embedGraph-api") + jq(el).data("ep") + desde + '/' + hasta;
+		} else {
+			var url = jq('script[data-embedGraph-api]').attr("data-embedGraph-api") + jq(el).data("ep") + jq(el).data("periodo");
+		}
+		console.log(url);
+		var self = this;
+		var data;
+
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.dibujarGrafico(el, result);
+			}
+		});
+	}
+
+	procesarDatosDF(el, resultado) {
+		var ret = '';
+		for (var key in resultado) {
+			if (typeof resultado[key]['contrato'] != 'undefined') {
+				ret += '<tr>';
+				ret += '<td>' + resultado[key]['contrato'] + '</td>';
+				ret += '<td>' + resultado[key]['compra'] + '</td>';
+				ret += '<td>' + resultado[key]['venta'] + '</td>';
+				ret += '</tr>';
+			}
+		}
+		jq(el).find('.tbody').html(ret);
+	}
+
+	procesarElementoDF(el) {
+		var url = jq(el).data("url") + jq(el).data("ep");
+		var self = this;
+
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.procesarDatosDF(el, result);
+			}
+		})
+	}
+
+	procesarDF() {
+		var els = jq(".indicador-df[data-ep]");
+		var count = els.length;
+		var i;
+
+		for (i = 0; i < count; i++) {
+			this.procesarElementoDF(els[i]);
+		}
+	}
+
+	procesarDatosGranos(el, resultado) {
+		if (typeof resultado[0]['variacion'] != 'undefined')
+			jq(el).find('.data-variacion').html(resultado[0]['variacion']);
+		if (typeof resultado[0]['variacion'] != 'undefined')
+			jq(el).find('.data-class-variacion').addClass(resultado[0]['class-variacion']);
+		if (typeof resultado[0]['valor'] != 'undefined')
+			jq(el).find('.data-ultimo').html(resultado[0]['valor']);
+		if (typeof resultado[0]['cierreanterior'] != 'undefined')
+			jq(el).find('.data-cierre-anterior').html(resultado[0]['cierreanterior']);
+
+		var ret = '';
+		for (var key in resultado) {
+			if (typeof resultado[key]['posicion'] != 'undefined') {
+				ret += '<tr>';
+				ret += '<td>' + resultado[key]['posicion'] + '</td>';
+				ret += '<td>' + resultado[key]['valor'] + '</td>';
+				ret += '<td>' + resultado[key]['variacion'] + '</td>';
+				ret += '</tr>';
+			}
+		}
+		jq(el).find('.listado').html(ret);
+	}
+
+	procesarElementoGranos(el) {
+		var url = jq(el).data("url") + jq(el).data("ep");
+		var self = this;
+
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.procesarDatosGranos(el, result);
+			}
+		})
+	}
+
+	procesarGranos() {
+		var els = jq(".indicador-grano[data-ep]");
+		var count = els.length;
+		var i;
+
+		for (i = 0; i < count; i++) {
+			this.procesarElementoGranos(els[i]);
+		}
+	}
+
+	procesarDatosHistorico(el, resultado) {
+		var retHead = '';
+		var ret = '';
+		var i = 0;
+		for (var key in resultado) {
+			if (!i) {
+				retHead += '<tr>';
+			} else {
+				ret += '<tr>';
+			}
+
+			for (var k in resultado[key]) {
+				if (typeof resultado[key][k] != 'undefined' && typeof resultado[key][k] != 'function' && typeof resultado[key][k] != 'boolean') {
+					if (!i) {
+						retHead += '<th scope="col">' + resultado[key][k] + '</th>';
+					} else {
+						ret += '<td>' + resultado[key][k] + '</td>';
+					}
+				}
+			}
+
+			if (!i) {
+				retHead += '</tr>';
+			} else {
+				ret += '</tr>';
+			}
+
+			i++;
+		}
+
+		jq(el).find('.thead').html(retHead);
+		jq(el).find('.tbody').html(ret);
+
+		//responsive Mobile
+		if (window.innerWidth < 768) {
+			var stamp = +new Date();
+			jq(el).find('.table').attr('id', 'table' + stamp);
+			jq(el).find('.table').attr('class', 'table tablesaw');
+			jq(el).find('.table').attr('data-tablesaw-mode', 'swipe');
+			jq(el).find('.table').attr('data-tablesaw-minimap', '');
+			jq('#table' + stamp).tablesaw().data("tablesaw").refresh();
+		}
+
+		var elTable = jq(el).find('.table')[0];
+		jq(elTable).removeClass('loader');
+	}
+
+	procesarElementoHistorico(el) {
+		var elTable = jq(el).find('.table')[0];
+		jq(elTable).addClass('loader');
+
+		var url = jq(el).data("url") + jq(el).data("ep");
+		var desde = jq(el).find('.desde');
+		var hasta = jq(el).find('.hasta');
+		url += jq(desde[0]).val();
+		url += '/' + jq(hasta[0]).val();
+
+		var self = this;
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.procesarDatosHistorico(el, result);
+			}
+		})
+	}
+
+	recargarHistorico() {
+
+	}
+
+	procesarBoton(el) {
+		var bt = jq(el).find('.boton');
+		if (typeof bt[0] != 'undefined') {
+			bt = bt[0];
+			if (!jq(bt).hasClass('active')) {
+				var self = this;
+				jq(bt).click(function () {
+					self.procesarElementoHistorico(el);
+				});
+			}
+		}
+	}
+
+	procesarHistorico() {
+		var els = jq(".indicador-historico-general[data-ep]");
+		var count = els.length;
+		var i;
+
+		for (i = 0; i < count; i++) {
+			this.procesarBoton(els[i]);
+			this.procesarElementoHistorico(els[i]);
+		}
+	}
+
+	procesarDatosHome(el, resultado) {
+		var ret = '';
+
+		for (var key in resultado) {
+			if (typeof resultado[key] != 'undefined' && typeof resultado[key] != 'function' && typeof resultado[key] != 'boolean') {
+				ret += '<div class="swiper-slide">';
+				if (typeof resultado[key]['class-variacion'] != 'undefined')
+					ret += '<div class="indicator-wrapper row no-gutters align-items-center d-flex flex-row flex-nowrap justify-content-md-around justify-content-center ' + resultado[key]['class-variacion'] + '">';
+				ret += '		<div class="col-auto d-flex flex-row align-items-center">';
+				ret += '			<div class="name-wrapper m-0">';
+				ret += '				<span class="icon-stat"><i class="icon"></i></span>';
+
+				var link_indicador = location.origin + resultado[key]['link'];
+				if (resultado[key]['link'].indexOf("http") != -1) {
+					link_indicador = resultado[key]['link'];
+				}
+				var target = '';
+				if (typeof resultado[key]['target'] != 'undefined') {
+					target = ' target="' + resultado[key]['target'] + '" ';
+				}
+
+				if (typeof resultado[key]['nombre'] != 'undefined')
+					ret += '			<p class="name"><a ' + target + ' href="' + link_indicador + '" rel="nofollow">' + resultado[key]['nombre'] + '</a></p>';
+				ret += '			</div>';
+				ret += '		</div>';
+				ret += '		<div class="col-auto d-flex flex-row align-items-center">';
+				ret += '			<div class="stats-wrapper">';
+				if (typeof resultado[key]['val1'] != 'undefined')
+					ret += '      			<span class="val-1">' + resultado[key]['val1'] + '</span>';
+				if (typeof resultado[key]['val2'] != 'undefined')
+					ret += '      			<span class="val-2">' + resultado[key]['val2'] + '</span>';
+				if (typeof resultado[key]['variacion'] != 'undefined')
+					ret += '      			<span class="percent">' + resultado[key]['variacion'] + '</span>';
+				ret += '			</div>';
+				ret += '		</div>';
+				ret += '	</div>';
+				ret += '</div>';
+			}
+		}
+
+
+		jq(el).find('.swiper-wrapper').html(ret);
+		//economicIndicators.update();
+
+		if (/MSIE 10/i.test(navigator.userAgent) || /MSIE 9/i.test(navigator.userAgent) || /rv:11.0/i.test(navigator.userAgent) || /Edge\/\d./i.test(navigator.userAgent)) {
+			economicIndicators = new Swiper('#swiper-economic-indicators', {
+				loop: true,
+				slidesPerView: 4,
+				spaceBetween: 0,
+				slidesPerGroup: 4,
+				// Responsive breakpoints
+				breakpoints: {
+					// when window width is <= 1440px
+					1440: {
+						slidesPerView: 3,
+						spaceBetween: 0,
+						slidesPerGroup: 3
+					},
+					// when window width is <= 991px
+					991: {
+						slidesPerView: 2,
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					},
+					// when window width is <= 767px
+					767: {
+						slidesPerView: 1,
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					},
+					// when window width is <= 575px
+					575: {
+						slidesPerView: 1,
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					}
+				},
+				navigation: {
+					nextEl: '.swiper-button-next',
+					prevEl: '.swiper-button-prev',
+				},
+			});
+		} else {
+			economicIndicators = new Swiper('#swiper-economic-indicators', {
+				loop: true,
+				slidesPerView: 'auto',
+				spaceBetween: 0,
+				slidesPerGroup: 1,
+				// Responsive breakpoints
+				breakpoints: {
+					// when window width is <= 1440px
+					1440: {
+						slidesPerView: 'auto',
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					},
+					// when window width is <= 991px
+					991: {
+						slidesPerView: 2,
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					},
+					// when window width is <= 767px
+					767: {
+						slidesPerView: 1,
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					},
+					// when window width is <= 575px
+					575: {
+						slidesPerView: 1,
+						spaceBetween: 0,
+						slidesPerGroup: 1
+					}
+				},
+				navigation: {
+					nextEl: '.swiper-button-next',
+					prevEl: '.swiper-button-prev',
+				},
+			});
+		}
+	}
+
+	procesarElementoHome(el) {
+		var url = jq(el).data("url") + jq(el).data("ep");
+
+		var self = this;
+		jq.ajax({
+			type: "GET",
+			url: url,
+			datatype: "json",
+			success: function (result) {
+				self.procesarDatosHome(el, result);
+			}
+		})
+	}
+
+	procesarHome() {
+		var els = jq(".indicador-home[data-ep]");
+		var count = els.length;
+		var i;
+		console.log(" - - - > procesarHome() - - - -> Total: " + count);
+
+		for (i = 0; i < count; i++) {
+			this.procesarElementoHome(els[i]);
+		}
+	}
+
+	procesar() {
+		this.procesarIndices();
+		this.procesarGraficos();
+		this.procesarGraficosScript();
+		this.procesarDF();
+		this.procesarGranos();
+		this.procesarHistorico();
+		this.procesarHome();
+	}
+
+}
+
+var indicadores = new Indicadores();
+
+const timeout = 1000 // 1 seg
+jq(document).ready(() => {
+	indicadores.procesar();  
+	setTimeout(() => { 
+		indicadores.procesar();
+	}, timeout);
+});   
+
+var indTotalValidation = 0;
+
+function testIndicadores() {
+	var div = jq("#swiper-economic-indicators .swiper-slide")[0];
+	if (indTotalValidation > 10) {
+		console.log("Max indTotalValidation, exit");
+		return false;
+	}
+	if (jq(window).width() > 720) {
+		console.log("SP Info =>", (typeof div), jq(div).attr("data-swiper-slide-index"));
+		if (typeof div == 'undefined' || jq(div).attr("data-swiper-slide-index") == "undefined") {
+			indicadores.procesarHome();
+			indTotalValidation++;
+			setTimeout(function () {
+				console.log("SP => UPDATE");
+				if(economicIndicators != null){
+					economicIndicators.update();
+				}
+				
+				testIndicadores();
+			}, 2000);
+		} else {
+			console.log("SP => UPDATE 2");
+			if(economicIndicators != null){
+				economicIndicators.update();
+			}
+			setTimeout(function () {
+				console.log("SP => UPDATE 3");
+				if(economicIndicators != null){
+					economicIndicators.update();
+				}
+			}, 10000);
+		}
+	} else {
+		console.log("SP Info => NO W");
+	}
+}
+
+
+if (typeof isBackend != 'undefined' && isBackend == false) {
+	testIndicadores();
+}
